@@ -1,0 +1,30 @@
+Müzikçalar 1.1.1
+
+Windows
+Windows bağımlılıkları ve derleme adımları için docs/GELISTIRME.md dosyasına bak.
+Derleme tamamlanınca bu klasördeki Muzikcalar.exe’yi aç.
+Uygulama Windows 10/11 x64 ve .NET Framework 4.8 ile çalışır. YouTube
+bağlantılarını çözmek için bilgisayardaki Node.js 22+ kullanılır. Yerel dosya
+çalmak için ağ bağlantısı gerekmez.
+
+Şarkı veya sanatçı ara, YouTube video bağlantısı yapıştır ya da Dosya ve kitaplık
+menüsünden yerel müzik aç. Parçanın sağ tık menüsünde Şimdi çal, Sırada sonraki
+çal ve Sıranın sonuna ekle bulunur. Listeden dinlemeye başlamak için Listeyi çal’ı
+seç. Playlist’i Düzenle menüsünden filtreleyebilir ve sıralayabilirsin.
+
+Ctrl + K aramaya odaklanır. Medya tuşları pencere etkinken çalışır. Dosya ve
+kitaplık menüsünden o oturum için arka plan medya tuşlarını açabilirsin.
+
+Dosya ve kitaplık menüsündeki JSON aktarımı Windows ve Android kitaplıklarını
+birleştirir. Yerel ses dosyaları kendi cihazında kalır. Windows oturumu, sıra,
+geçmiş ve kitaplık data klasörüne yazılır. Yedek için data klasörünü kopyala.
+Programı başka bir klasöre taşırken EXE, bin, assets ve data birlikte taşınır.
+
+Android
+Derlediğin Muzikcalar.apk dosyasını Android 8.0+ telefonda aç. Aynı imzayla kurulmuş
+önceki sürümün üzerine yüklenebilir. Ayrıntılar android/OKU.md dosyasındadır.
+
+Derleme ve doğrulama
+Windows için Derle.ps1, Android için android/Derle-Android.ps1 kullanılır.
+Mimari ve doğrulama komutları docs/GELISTIRME.md dosyasındadır. Sürümdeki
+bileşenler docs/BILESENLER.txt dosyasındadır.

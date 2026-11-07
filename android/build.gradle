@@ -1,0 +1,9 @@
+plugins { id 'com.android.application' version '9.1.1' apply false }
+
+def buildRoot = providers.gradleProperty('muzikcalarBuildDir')
+        .map { rootProject.file(it) }
+        .getOrElse(rootProject.file('../artifacts/android'))
+
+allprojects {
+    layout.buildDirectory.set(new File(buildRoot, project == rootProject ? 'root' : project.name))
+}

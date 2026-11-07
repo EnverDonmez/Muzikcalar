@@ -1,0 +1,35 @@
+Bu klasör kişisel yerel kullanım için hazırlanmıştır.
+
+Müzikçalar
+Windows kaynak kodu: src/
+Android kaynak kodu: android/app/src/
+Lisans: MIT. Bu uygulamanın kendi kaynak kodunu kullanabilir, değiştirebilir
+ve kopyalayabilirsin. Yazılım olduğu gibi, garanti verilmeden sunulur.
+Copyright (c) 2026.
+
+yt-dlp 2026.10.26 (Windows x64 standalone)
+https://github.com/yt-dlp/yt-dlp
+Kaynak proje Unlicense kullanır. Standalone sürümün paketlenmiş bağımlılıkları
+GPLv3+ ve başka lisanslara tabidir:
+https://github.com/yt-dlp/yt-dlp/blob/master/THIRD_PARTY_LICENSES.txt
+https://github.com/yt-dlp/yt-dlp/blob/master/LICENSE
+https://www.gnu.org/licenses/gpl-3.0.html
+
+mpv v0.41.0-1374-g48fca90e8, Windows x64, 2026-11-01
+https://github.com/shinchiro/mpv-winbuild-cmake/releases/tag/20261101
+Kaynak: https://github.com/mpv-player/mpv
+GPLv2+; derleme ve bağımlılıklara göre ek lisanslar geçerlidir.
+https://github.com/mpv-player/mpv/blob/master/Copyright
+
+Node.js
+Bilgisayardaki mevcut Node.js çalıştırılabilir dosyası kullanılır;
+bu klasöre Node.js kopyalanmamıştır.
+https://github.com/nodejs/node/blob/main/LICENSE
+
+Dosya doğrulama bilgileri proje kökündeki SHA256SUMS.txt dosyasındadır.
+İlk yt-dlp indirmesi yayımlanan SHA256 listesiyle karşılaştırıldı.
+mpv arşivi GitHub release digest bilgisiyle karşılaştırıldı.
+
+Montserrat Regular ve ExtraBold — The Montserrat Project Authors
+Resmi kaynak: https://github.com/JulietaUla/Montserrat
+Lisans: SIL Open Font License 1.1; tam metin assets/fonts/OFL.txt içindedir.

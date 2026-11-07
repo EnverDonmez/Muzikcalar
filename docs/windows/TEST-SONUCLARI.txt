@@ -1,0 +1,115 @@
+Müzikçalar 1.1.1 — 8 Kasım 2026 doğrulaması
+
+Kaynaklar yeni dizin yapısıyla derlendi. Sabit arama örneği, kitaplık,
+yerel mpv oynatma ve üç pencere ölçeğindeki arayüz kontrolleri geçti.
+Canlı YouTube araması, akış çözümü, ses, duraklatma ve sarma da doğrulandı.
+
+Müzikçalar 1.1 — 7 Kasım 2026 doğrulaması
+
+Yerel WAV çevrimdışı açıldı. Bozuk ses dosyasının hata olayı doğru isteğe
+bağlandı. Hızlı parça değişiminden sonra son istek 4. saniyeden başladı.
+Eski kuyruk dosyası ve 1.1 oturumu geri yüklendi. Yinelenen kuyruk girişlerinden
+yalnızca açılan giriş çıkarıldı. Geçmiş, tekrar ve konum geri geldi.
+Windows/Android kitaplık alanları, birleştirme, yerel yolların dışa aktarım
+dışında tutulması ve yedekten geri yükleme kontrolleri geçti.
+
+15 canlı YouTube arama sonucu alındı. İlk ses biçimi açılmadığında doğrulanmış
+ikinci biçim mpv’de sessize alınmış olarak açıldı. Zaman ilerlemesi, duraklatma,
+sarma, devam ve durdurma kontrolleri geçti. Pencere yerleşimi %100, %150 ve
+%200 ölçeklerde otomatik olarak kontrol edildi. Fiziksel medya tuşları denenmedi.
+
+Müzikçalar — 5 Kasım 2026 doğrulaması
+
+Page parser, thumbnail metadata and cache roundtrip: PASS
+Search cancellation: PASS
+Existing search: 2.202 s
+New search: 0.667 s (15 results)
+Repeated search: 0.009 s
+Eight real YouTube thumbnails downloaded and decoded: PASS
+Direct YouTube video URL: PASS
+
+Selection, add to queue, queue navigation and removal: PASS
+List scrolling without native light scrollbar: PASS
+Visible control bounds at {Width=1920, Height=1215}: PASS
+Visible control bounds at {Width=1605, Height=1035}: PASS
+
+Input validation: PASS
+Search cancellation: PASS
+Live YouTube search: PASS (15 results)
+Concurrent audio engine startup: PASS
+Live audio resolution: PASS (n61ULEU7CO0)
+Repeated audio resolution: PASS (0 ms)
+mpv audio stream opened (muted): PASS
+Audio decoding and playback progress: PASS
+Volume control (mute): PASS
+Pause: PASS
+Seek: PASS
+Resume: PASS
+Stop: PASS
+
+
+Ad değişikliği, gerçek Windows tekerlek mesajları ve Montserrat çizimi:
+Selection, add to queue, queue navigation and removal: PASS
+Windows mouse-wheel messages: down, up and high-resolution deltas: PASS
+Hover scrolling with search focused; outside-list routing and bounds: PASS
+Müzikçalar window title and bundled Montserrat typography: PASS (Montserrat ExtraBold; Montserrat)
+Visible control bounds at {Width=1920, Height=1215}: PASS
+Visible control bounds at {Width=1605, Height=1035}: PASS
+
+Düğme çizimi, okunabilirlik ve ölçek kontrolleri:
+Rounded button background/state/resize regression: PASS (144 bitmap cases, 100/125/150/200% scale)
+Dark theme text, primary action, slider track and focus contrast: PASS
+Full interface, wheel routing and control layout: PASS at 100%
+Full interface, wheel routing and control layout: PASS at 150%
+Full interface, wheel routing and control layout: PASS at 200%
+
+Playlistler, beğeniler ve hover kararlılığı:
+Rounded button background/state/resize regression: PASS (144 bitmap cases, 100/125/150/200% scale)
+Dark theme text, primary action, slider track and focus contrast: PASS
+Full interface, wheel routing and control layout: PASS at 100%
+Full interface, wheel routing and control layout: PASS at 150%
+Full interface, wheel routing and control layout: PASS at 200%
+Playlist/favorites storage, atomic backup and reload: PASS
+
+Selection, add to queue, queue navigation and removal: PASS
+Windows mouse-wheel messages: down, up and high-resolution deltas: PASS
+Hover scrolling with search focused; outside-list routing and bounds: PASS
+Buffered hover rendering: 30 mouse-move frames retain covers, positions and selection; no native erase: PASS
+Favorites, playlist overview/open, track removal and playlist queue order: PASS
+Library page bounds Playlists at normal/minimum window size: PASS
+Library page bounds PlaylistTracks at normal/minimum window size: PASS
+Library page bounds Favorites at normal/minimum window size: PASS
+Müzikçalar window title and bundled Montserrat typography: PASS (Montserrat ExtraBold; Montserrat)
+Visible control bounds at {Width=1920, Height=1215}: PASS
+Visible control bounds at {Width=1605, Height=1035}: PASS
+
+Create, rename and remove playlists: PASS
+Duplicate names and duplicate songs: PASS
+Favorites, Turkish metadata and playlist order survive reload: PASS
+Atomic save, backup recovery and persistent removals: PASS
+
+Input validation: PASS
+Search cancellation: PASS
+Live YouTube search: PASS (15 results)
+Concurrent audio engine startup: PASS
+Live audio resolution: PASS (n61ULEU7CO0)
+Repeated audio resolution: PASS (0 ms)
+mpv audio stream opened (muted): PASS
+Audio decoding and playback progress: PASS
+Volume control (mute): PASS
+Pause: PASS
+Seek: PASS
+Resume: PASS
+Stop: PASS
+
+Selection, add to queue, queue navigation and removal: PASS
+Windows mouse-wheel messages: down, up and high-resolution deltas: PASS
+Hover scrolling with search focused; outside-list routing and bounds: PASS
+Buffered hover rendering: 30 mouse-move frames retain covers, positions and selection; no native erase: PASS
+Favorites, playlist overview/open, track removal and playlist queue order: PASS
+Library page bounds Playlists at normal/minimum window size: PASS
+Library page bounds PlaylistTracks at normal/minimum window size: PASS
+Library page bounds Favorites at normal/minimum window size: PASS
+Müzikçalar window title and bundled Montserrat typography: PASS (Montserrat ExtraBold; Montserrat)
+Visible control bounds at {Width=1920, Height=1215}: PASS
+Visible control bounds at {Width=1605, Height=1035}: PASS

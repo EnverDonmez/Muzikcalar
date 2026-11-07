@@ -1,0 +1,71 @@
+plugins { id 'com.android.application' }
+def localAppData = System.getenv('LOCALAPPDATA')
+def signingPath = System.getenv('MUZIKCALAR_SIGNING_PROPERTIES')
+def signingFile = signingPath ? file(signingPath) : (localAppData ? new File(localAppData, 'Muzikcalar/signing/release.properties') : null)
+def releaseSecrets = new Properties()
+if (signingFile?.isFile()) {
+    signingFile.withReader('UTF-8') { releaseSecrets.load(it) }
+}
+def canSign = ['storeFile', 'storePassword', 'keyAlias', 'keyPassword'].every { releaseSecrets.getProperty(it) }
+tasks.configureEach {
+    if (name in ['packageRelease', 'signReleaseBundle']) {
+        doFirst {
+            if (!canSign) throw new GradleException('Proje dışındaki Android imzalama ayarları eksik.')
+        }
+    }
+}
+
+android {
+    namespace 'com.muzikcalar.app'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'com.muzikcalar.app'
+        minSdk 26
+        targetSdk 36
+        versionCode 3
+        versionName '1.1.1'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64' }
+    }
+    signingConfigs {
+        if (canSign) {
+            personal {
+                storeFile new File(signingFile.parentFile, releaseSecrets.getProperty('storeFile'))
+                storePassword releaseSecrets.getProperty('storePassword')
+                keyAlias releaseSecrets.getProperty('keyAlias')
+                keyPassword releaseSecrets.getProperty('keyPassword')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (canSign) signingConfig signingConfigs.personal
+            minifyEnabled false
+        }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    sourceSets {
+        main {
+            assets.srcDir '../../assets/fonts'
+            res.srcDir '../../assets/branding/res'
+        }
+    }
+    packaging { jniLibs { useLegacyPackaging true; keepDebugSymbols += ['**/libpython.zip.so'] }; resources { excludes += ['META-INF/DEPENDENCIES','META-INF/LICENSE*','META-INF/NOTICE*'] } }
+    testOptions { unitTests.returnDefaultValues = true }
+}
+dependencies {
+    implementation 'androidx.activity:activity:1.12.4'
+    implementation 'androidx.recyclerview:recyclerview:1.4.0'
+    implementation 'androidx.media3:media3-exoplayer:1.11.1'
+    implementation 'androidx.media3:media3-session:1.11.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'io.github.junkfood02.youtubedl-android:library:0.18.1'
+    // Override the older engine wrapper's transitive JSON/file libraries.
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.6'
+    implementation 'commons-io:commons-io:2.20.0'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20250517'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:rules:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+}
