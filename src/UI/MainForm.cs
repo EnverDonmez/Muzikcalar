@@ -175,7 +175,7 @@ namespace SadeSes
         }
         protected override void Dispose(bool disposing)
         {
-            if (disposing) checkpoint.Dispose();
+            if (disposing) { CancelSuggestions(); checkpoint.Dispose(); }
             if (disposing && brandLogo.Image != null)
             {
                 Image image = brandLogo.Image;
@@ -203,9 +203,10 @@ namespace SadeSes
             content.Controls.AddRange(new Control[] { searchBox, updateButton, eyebrow, heading, subtitle, section, count, list, scroll, empty, playButton, addButton, removeButton, status, inspector });
             scroll.Target = list; scroll.BringToFront();
             searchBox.Controls.AddRange(new Control[] { search, searchButton });
-            searchBox.Paint += (s, e) => { e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; Theme.Icon(e.Graphics, "search", new Rectangle(Theme.P(16), Theme.P(14), Theme.P(20), Theme.P(20)), Theme.Muted); };
+            StyleSearchSurface(searchBox, 12);
+            searchBox.Paint += (s, e) => Theme.Icon(e.Graphics, "search", new Rectangle(Theme.P(16), Theme.P(14), Theme.P(20), Theme.P(20)), Theme.Muted);
             search.BorderStyle = BorderStyle.None; search.BackColor = Theme.Panel; search.ForeColor = Theme.Text; search.Font = Theme.Font(15, false); search.AccessibleName = "Şarkı, sanatçı veya YouTube bağlantısı";
-            search.KeyDown += async (s, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; await Search(); } };
+            BuildSearchSuggestions();
             ButtonStyle(searchButton, "Ara", "", true); searchButton.Click += async (s, e) => await Search();
             ButtonStyle(updateButton, "Güncelle", "", false); updateButton.Click += async (s, e) => await UpdateTool();
             LabelStyle(eyebrow, "MÜZİĞİNİ BUL", 11, Theme.Accent, true); LabelStyle(heading, "Bugün ne dinleyelim?", 34, Theme.Text, true); LabelStyle(subtitle, "Sevdiğin sanatçıları ara, bir parçaya takıl, kendi sıranı oluştur.", 13, Theme.Muted, false);
@@ -285,7 +286,7 @@ namespace SadeSes
             Bounds(previousButton, cx - Theme.P(90), Theme.P(18), Theme.P(44), Theme.P(44)); Bounds(pauseButton, cx - Theme.P(24), Theme.P(14), Theme.P(52), Theme.P(52)); Bounds(nextButton, cx + Theme.P(50), Theme.P(18), Theme.P(44), Theme.P(44)); Bounds(repeatButton, cx + Theme.P(108), Theme.P(18), Theme.P(44), Theme.P(44));
             Bounds(seek, cx - Theme.P(170), Theme.P(76), Theme.P(340), Theme.P(22)); Bounds(elapsed, elapsedLeft, Theme.P(76), Theme.P(43), Theme.P(22)); Bounds(total, cx + Theme.P(180), Theme.P(76), Theme.P(48), Theme.P(22));
             Bounds(stopButton, ClientSize.Width - Theme.P(240), Theme.P(32), Theme.P(44), Theme.P(44)); Bounds(volume, ClientSize.Width - Theme.P(151), Theme.P(43), Theme.P(120), Theme.P(24));
-            LayoutLibraryInterface(); playerBar.Invalidate();
+            LayoutLibraryInterface(); LayoutSearchSuggestions(); playerBar.Invalidate();
         }
         void DrawTrack(object sender, DrawItemEventArgs e)
         {
@@ -393,6 +394,7 @@ namespace SadeSes
         void Ui(Action action) { if (closing || IsDisposed || !IsHandleCreated) return; try { BeginInvoke((Action)(() => { if (!closing) action(); })); } catch { } }
         async Task Search()
         {
+            HideSuggestions();
             if (updating || preview || string.IsNullOrWhiteSpace(search.Text)) return;
             if (searchCancel != null) searchCancel.Cancel(); searchCancel = new CancellationTokenSource(); var token = searchCancel.Token; int version = ++searchVersion;
             searching = true; searchButton.Text = "…"; updateButton.Enabled = false; SetStatus("Müziğin aranıyor…", false);

@@ -40,6 +40,41 @@ namespace SadeSes
     public static class YouTubeSearch
     {
         public const int ResultLimit = 15;
+        const int SuggestionLimit = 5;
+        static readonly Regex LinkInput = new Regex(@"://|(?:^|\s)(?:https?:|www\.|(?:m\.|music\.)?youtube\.com(?=[/\s]|$)|youtu\.be(?=[/\s]|$))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        internal static bool CanSuggest(string query)
+        {
+            return query.Length >= 2 && query.Length <= 500 && !LinkInput.IsMatch(query);
+        }
+
+        internal static async Task<List<string>> Suggest(string query, CancellationToken token)
+        {
+            string url = "https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&hl=tr&ie=UTF-8&oe=UTF-8&q=" + Uri.EscapeDataString(query);
+            string json = await Network.Text(url, token, 3).ConfigureAwait(false);
+            return ParseSuggestions(json, query);
+        }
+
+        internal static List<string> ParseSuggestions(string json, string query)
+        {
+            var response = Json.New().Deserialize<object[]>(json);
+            var suggestions = new List<string>();
+            var entries = response != null && response.Length > 1 ? response[1] as IList : null;
+            if (entries == null) return suggestions;
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { query };
+            foreach (var entry in entries)
+            {
+                var text = entry as string;
+                if (text == null) continue;
+                text = text.Trim();
+                if (!CanSuggest(text) || !seen.Add(text)) continue;
+                suggestions.Add(text);
+                if (suggestions.Count == SuggestionLimit) break;
+            }
+            return suggestions;
+        }
+
         public static async Task<List<Track>> Search(string input, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();

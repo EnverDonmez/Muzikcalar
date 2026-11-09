@@ -5,6 +5,7 @@ import android.net.Uri;
 import android.os.*;
 import android.provider.MediaStore;
 import android.view.*;
+import android.view.inputmethod.CompletionInfo;
 import android.widget.*;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -41,6 +42,39 @@ public class MobileTest {
             waitFor(()->{final boolean[] ready={false};main(()->ready[0]=a.controller.getMediaItemCount()==2);return ready[0];},10);
             main(()->{a.controller.moveMediaItem(1,0);assertEquals("dQw4w9WgXcQ",a.controller.getMediaItemAt(0).mediaId);a.controller.removeMediaItem(0);assertEquals(1,a.controller.getMediaItemCount());a.showPlayer();});shot("player");
             main(()->{a.playerDialog.dismiss();a.controller.clearMediaItems();a.tab=0;a.showPage(true);});lib.toggle(t);lib.delete(p);
+        }
+    }
+    @Test public void liveSuggestionsReplaceTheQueryAndStartSearch() throws Exception {
+        try (ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
+            AtomicReference<MainActivity> ref=new AtomicReference<>();
+            scenario.onActivity(ref::set);
+            MainActivity activity=ref.get();
+            waitFor(()->{
+                boolean[] focused={false};
+                main(()->focused[0]=activity.hasWindowFocus());
+                return focused[0];
+            },10);
+            main(()->{
+                activity.search.requestFocus();
+                activity.search.setText("daft punk");
+                activity.search.setText("tarkan");
+            });
+            waitFor(()->{
+                boolean[] visible={false};
+                main(()->visible[0]=activity.search.isPopupShowing());
+                return visible[0];
+            },8);
+            main(()->{
+                AutoCompleteTextView search=activity.search;
+                assertEquals(((View)search.getParent()).getId(),search.getDropDownAnchor());
+                assertTrue(search.getAdapter().getCount()<=5);
+                String selected=search.getAdapter().getItem(0).toString();
+                assertTrue(selected.startsWith("tarkan"));
+                search.onCommitCompletion(new CompletionInfo(search.getAdapter().getItemId(0),0,selected));
+                assertEquals(selected,search.getText().toString());
+                assertEquals(selected,activity.lastQuery);
+                assertFalse(search.isPopupShowing());
+            });
         }
     }
     @Test public void liveSearchAudioPlaybackBackgroundAndControls()throws Exception{

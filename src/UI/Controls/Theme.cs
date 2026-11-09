@@ -70,6 +70,11 @@ namespace SadeSes
                     float line = next ? .78f : .22f; g.DrawLine(pen, x + w * line, y + h * .23f, x + w * line, y + h * .77f);
                 }
                 else if (kind == "search") { g.DrawEllipse(pen, x + w * .12f, y + h * .1f, w * .55f, h * .55f); g.DrawLine(pen, x + w * .61f, y + h * .61f, x + w * .88f, y + h * .88f); }
+                else if (kind == "enter")
+                {
+                    g.DrawLines(pen, new[] { new PointF(x + w * .83f, y + h * .24f), new PointF(x + w * .83f, y + h * .62f), new PointF(x + w * .18f, y + h * .62f) });
+                    g.DrawLines(pen, new[] { new PointF(x + w * .41f, y + h * .39f), new PointF(x + w * .18f, y + h * .62f), new PointF(x + w * .41f, y + h * .85f) });
+                }
                 else if (kind == "plus") { g.DrawLine(pen, x + w * .5f, y + h * .2f, x + w * .5f, y + h * .8f); g.DrawLine(pen, x + w * .2f, y + h * .5f, x + w * .8f, y + h * .5f); }
                 else if (kind == "stop") g.FillRectangle(fill, x + w * .26f, y + h * .26f, w * .48f, h * .48f);
                 else if (kind == "repeat") { g.DrawArc(pen, x + w * .15f, y + h * .2f, w * .7f, h * .6f, 195, 160); g.DrawArc(pen, x + w * .15f, y + h * .2f, w * .7f, h * .6f, 15, 160); g.DrawLine(pen, x + w * .82f, y + h * .2f, x + w * .84f, y + h * .45f); g.DrawLine(pen, x + w * .16f, y + h * .55f, x + w * .18f, y + h * .8f); }

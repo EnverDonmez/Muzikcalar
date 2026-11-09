@@ -23,6 +23,7 @@ namespace SadeSes
             lines.Add("Selection, add to queue, queue navigation and removal: PASS");
             CheckSession(lines);
             CheckMouseWheel(lines);
+            CheckSearchSuggestions(lines, Path.Combine(Path.GetDirectoryName(path), "search-suggestions-" + (int)(Theme.Scale * 100) + ".png"));
             CheckHoverFrames(lines);
             CheckLibraryInterface(lines);
             if (Text != "Müzikçalar" || brand.Text != "Müzikçalar") throw new Exception("Application name mismatch");
@@ -38,6 +39,50 @@ namespace SadeSes
                 lines.Add("Visible control bounds at " + size + ": PASS");
             }
             File.WriteAllLines(path, lines, new UTF8Encoding(false)); Close();
+        }
+        void CheckSearchSuggestions(List<string> lines, string previewPath)
+        {
+            string original = search.Text;
+            search.Focus();
+            search.Text = "son ar";
+            ShowSuggestions(new[] { "son arzum", "son arzum nilüfer", "son arzum dans", "son arzu", "son arzum piyano" });
+            if (!suggestions.Visible || suggestionCard.Left != searchBox.Left || suggestionCard.Top < searchBox.Bottom ||
+                suggestionCard.Width > searchBox.Width || suggestionCard.Bottom > content.Height || !suggestionCard.ClientRectangle.Contains(suggestions.Bounds) ||
+                content.Controls.GetChildIndex(suggestionCard) != 0)
+                throw new Exception("Suggestion list is not anchored to the search field");
+            SearchKeyDown(search, new KeyEventArgs(Keys.Down));
+            SearchKeyDown(search, new KeyEventArgs(Keys.Down));
+            if (suggestions.SelectedIndex != 1 || ActiveControl != search) throw new Exception("Suggestion navigation lost selection or active input: index=" + suggestions.SelectedIndex);
+            RenderSuggestionsPreview(previewPath);
+            SearchKeyDown(search, new KeyEventArgs(Keys.Enter));
+            if (suggestions.Visible || search.Text != "son arzum nilüfer") throw new Exception("Suggestion was not accepted");
+            ShowSuggestions(new[] { "son arzum nilüfer canlı" });
+            SearchKeyDown(search, new KeyEventArgs(Keys.Escape));
+            if (suggestions.Visible || search.Text != "son arzum nilüfer") throw new Exception("Dismissal changed the query or left the list open");
+            search.Text = original;
+            lines.Add("Suggestion placement, arrow keys, Enter and Escape: PASS");
+        }
+        void RenderSuggestionsPreview(string path)
+        {
+            var area = Rectangle.FromLTRB(0, searchBox.Top - Theme.P(12), searchBox.Right, suggestionCard.Bottom + Theme.P(12));
+            using (var preview = new Bitmap(area.Width, area.Height))
+            using (var graphics = Graphics.FromImage(preview))
+            {
+                graphics.Clear(Theme.Bg);
+                foreach (var surface in new[] { searchBox, suggestionCard })
+                {
+                    using (var layer = new Bitmap(surface.Width, surface.Height))
+                    using (var shape = surface.Region.Clone())
+                    {
+                        surface.DrawToBitmap(layer, surface.ClientRectangle);
+                        var position = new Point(surface.Left - area.Left, surface.Top - area.Top);
+                        shape.Translate(position.X, position.Y);
+                        graphics.Clip = shape;
+                        graphics.DrawImageUnscaled(layer, position);
+                    }
+                }
+                preview.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+            }
         }
         void CheckSession(List<string> lines)
         {

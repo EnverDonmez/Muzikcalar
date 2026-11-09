@@ -7,7 +7,9 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.*;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.*;
 import android.view.inputmethod.*;
 import android.widget.*;
@@ -23,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
+import okhttp3.Call;
 
 @UnstableApi
 public final class MainActivity extends ComponentActivity {
@@ -31,7 +34,7 @@ public final class MainActivity extends ComponentActivity {
     MediaController controller;
     ListenableFuture<MediaController> controllerFuture;
     LinearLayout root,searchArea,pageHeader,mini,nav;
-    EditText search;
+    AutoCompleteTextView search;
     TextView pageTitle,pageSubtitle,status,miniTitle,miniArtist,empty;
     ImageView miniCover;
     ImageButton miniPlay;
@@ -52,6 +55,10 @@ public final class MainActivity extends ComponentActivity {
     SeekBar timeline;
     boolean seeking;
     private final Handler handler=new Handler(Looper.getMainLooper());
+    private final Runnable requestSuggestions=this::fetchSuggestions;
+    private Call suggestionCall;
+    private int suggestionVersion;
+    private boolean searchKeyboardVisible;
     private final Player.Listener listener=new Player.Listener(){public void onEvents(Player player,Player.Events events){
         refreshPlayback();
         if(tab==3&&(events.contains(Player.EVENT_TIMELINE_CHANGED)||events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION))
@@ -63,7 +70,7 @@ public final class MainActivity extends ComponentActivity {
         build();adaptCompactLayout();search.setText(lastQuery);showPage(false);
         controllerFuture=new MediaController.Builder(this,new SessionToken(this,new ComponentName(this,PlaybackService.class))).buildAsync();
         controllerFuture.addListener(()->{try{controller=controllerFuture.get();controller.addListener(listener);refreshPlayback();if(tab==3)showPage(false);}catch(Exception e){message("Oynatıcı başlatılamadı.");}},androidx.core.content.ContextCompat.getMainExecutor(this));
-        getOnBackPressedDispatcher().addCallback(this,new OnBackPressedCallback(true){public void handleOnBackPressed(){if(opened!=null){opened=null;showPage(true);}else if(tab!=0){tab=0;showPage(true);}else{setEnabled(false);getOnBackPressedDispatcher().onBackPressed();}}});
+        getOnBackPressedDispatcher().addCallback(this,new OnBackPressedCallback(true){public void handleOnBackPressed(){if(search.isPopupShowing()){clearSuggestions();}else if(opened!=null){opened=null;showPage(true);}else if(tab!=0){tab=0;showPage(true);}else{setEnabled(false);getOnBackPressedDispatcher().onBackPressed();}}});
         handler.post(ticker);handleShare(getIntent());if(app.libraryError!=null)new AlertDialog.Builder(this).setTitle("Kitaplığın korunuyor").setMessage(app.libraryError).setPositiveButton("Tamam",null).show();
     }
     static org.json.JSONArray parseArray(String raw){try{return new org.json.JSONArray(raw);}catch(Exception e){return new org.json.JSONArray();}}
@@ -74,16 +81,108 @@ public final class MainActivity extends ComponentActivity {
     LinearLayout.LayoutParams lp(int w,int h){return new LinearLayout.LayoutParams(w<0?w:dp(w),h<0?h:dp(h));}
     void build(){
         root=Ui.vertical(this);root.setBackgroundColor(Ui.BG);setContentView(root);
-        ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)->{androidx.core.graphics.Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());int keyboard=insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;root.setPadding(bars.left,bars.top,bars.right,Math.max(bars.bottom,keyboard));boolean typing=keyboard>bars.bottom;mini.setVisibility(typing?View.GONE:View.VISIBLE);nav.setVisibility(typing?View.GONE:View.VISIBLE);return insets;});
+        ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)->{androidx.core.graphics.Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());int keyboard=insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;root.setPadding(bars.left,bars.top,bars.right,Math.max(bars.bottom,keyboard));boolean typing=keyboard>bars.bottom;mini.setVisibility(typing?View.GONE:View.VISIBLE);nav.setVisibility(typing?View.GONE:View.VISIBLE);
+            boolean keyboardVisible=insets.isVisible(WindowInsetsCompat.Type.ime());
+            if (searchKeyboardVisible && !keyboardVisible) clearSuggestions();
+            searchKeyboardVisible=keyboardVisible;
+            return insets;
+        });
         LinearLayout header=Ui.horizontal(this);header.setPadding(dp(20),dp(12),dp(12),dp(12));ImageView logo=new ImageView(this);logo.setImageResource(R.drawable.brand_logo);logo.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);header.addView(logo,lp(44,44));Ui.space(header,this,12,0);LinearLayout names=Ui.vertical(this);names.addView(Ui.text(this,"Müzikçalar",21,true,Ui.TEXT));TextView tagline=Ui.text(this,"Kendi ritminde.",12,false,Ui.MUTED);tagline.setPadding(0,dp(4),0,0);names.addView(tagline);header.addView(names,new LinearLayout.LayoutParams(0,-2,1));ImageButton settings=Ui.action(this,"settings","Ayarlar ve ses motorunu güncelle",false);settings.setOnClickListener(v->settings());header.addView(settings,lp(48,48));root.addView(header,lp(-1,-2));
         LinearLayout body=Ui.vertical(this);int margin=getResources().getConfiguration().screenWidthDp>=600?40:20;body.setPadding(dp(margin),0,dp(margin),0);root.addView(body,new LinearLayout.LayoutParams(-1,0,1));
         searchArea=Ui.vertical(this);TextView label=Ui.text(this,"MÜZİĞİNİ BUL",11,true,Ui.LIME);label.setPadding(dp(2),dp(8),0,dp(10));searchArea.addView(label);LinearLayout field=Ui.horizontal(this);field.setBackground(Ui.shape(this,Ui.SURFACE,18));field.setPadding(dp(16),dp(2),dp(4),dp(2));
-        search=new EditText(this);search.setTextColor(Ui.TEXT);search.setHintTextColor(Ui.MUTED);search.setHint("Şarkı, sanatçı veya YouTube linki");search.setTextSize(14);search.setTypeface(Ui.regular);search.setSingleLine(true);search.setBackgroundColor(Color.TRANSPARENT);search.setImeOptions(EditorInfo.IME_ACTION_SEARCH);search.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);search.setContentDescription("Şarkı, sanatçı veya YouTube bağlantısı ara");search.setMinimumHeight(dp(52));field.addView(search,new LinearLayout.LayoutParams(0,-2,1));ImageButton find=Ui.action(this,"search","Ara",true);find.setOnClickListener(v->runSearch());field.addView(find,lp(48,48));search.setOnEditorActionListener((v,action,event)->{if(action==EditorInfo.IME_ACTION_SEARCH){runSearch();return true;}return false;});searchArea.addView(field,lp(-1,-2));body.addView(searchArea);
+        search=new AutoCompleteTextView(this) {
+            // The suggestion service filters each query before the adapter is populated.
+            @Override protected void performFiltering(CharSequence text, int keyCode) { }
+        };
+        search.setTextColor(Ui.TEXT);
+        search.setHintTextColor(Ui.MUTED);
+        search.setHint("Şarkı, sanatçı veya YouTube linki");
+        search.setTextSize(14);
+        search.setTypeface(Ui.regular);
+        search.setSingleLine(true);
+        search.setBackgroundColor(Color.TRANSPARENT);
+        search.setImeOptions(EditorInfo.IME_ACTION_SEARCH|EditorInfo.IME_FLAG_NO_EXTRACT_UI);
+        search.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        search.setContentDescription("Şarkı, sanatçı veya YouTube bağlantısı ara");
+        search.setMinimumHeight(dp(52));
+        field.addView(search,new LinearLayout.LayoutParams(0,-2,1));
+        ImageButton find=Ui.action(this,"search","Ara",true);
+        find.setOnClickListener(v->runSearch());
+        field.addView(find,lp(48,48));
+        search.setOnEditorActionListener((v,action,event)->{
+            if (action!=EditorInfo.IME_ACTION_SEARCH) return false;
+            runSearch();
+            return true;
+        });
+        searchArea.addView(field,lp(-1,-2));
+        body.addView(searchArea);
+        buildSearchSuggestions(field);
         pageHeader=Ui.horizontal(this);pageHeader.setPadding(0,dp(24),0,dp(12));LinearLayout titles=Ui.vertical(this);pageTitle=Ui.text(this,"Bugün ne dinleyelim?",22,true,Ui.TEXT);pageTitle.setMaxLines(2);titles.addView(pageTitle);pageSubtitle=Ui.text(this,"Sevdiğin müziğe bir arama uzaktasın.",12,false,Ui.MUTED);pageSubtitle.setPadding(0,dp(8),0,0);pageSubtitle.setMaxLines(2);titles.addView(pageSubtitle);pageHeader.addView(titles,new LinearLayout.LayoutParams(0,-2,1));pageAction=Ui.button(this,"Yeni",true);pageAction.setOnClickListener(v->{if(tab==2&&opened==null)namePlaylist(null,null);else playVisible();});pageHeader.addView(pageAction,lp(-2,-2));body.addView(pageHeader);
         busy=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);busy.setIndeterminate(true);busy.setIndeterminateTintList(ColorStateList.valueOf(Ui.LIME));body.addView(busy,lp(-1,3));
         status=Ui.text(this,"",12,false,Ui.MUTED);status.setPadding(0,dp(8),0,dp(8));body.addView(status,lp(-1,-2));
         FrameLayout frame=new FrameLayout(this);body.addView(frame,new LinearLayout.LayoutParams(-1,0,1));list=new RecyclerView(this);list.setLayoutManager(new LinearLayoutManager(this));list.setAdapter(adapter);list.setItemAnimator(null);list.setClipToPadding(false);list.setPadding(0,0,0,dp(12));frame.addView(list,new FrameLayout.LayoutParams(-1,-1));empty=Ui.text(this,"",15,false,Ui.MUTED);empty.setGravity(Gravity.CENTER);empty.setPadding(dp(20),dp(16),dp(20),dp(16));empty.setLineSpacing(dp(6),1);frame.addView(empty,new FrameLayout.LayoutParams(-1,-1));
         buildMini();buildNav();
+    }
+    private void buildSearchSuggestions(View field) {
+        field.setId(View.generateViewId());
+        search.setDropDownAnchor(field.getId());
+        search.setDropDownVerticalOffset(dp(4));
+        search.setDropDownBackgroundDrawable(Ui.shape(this,Ui.RAISED,14));
+        search.setOnItemClickListener((parent,row,position,id)->runSearch());
+        search.setOnFocusChangeListener((view,focused)->{if (!focused) clearSuggestions();});
+        search.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence text,int start,int count,int after) { }
+            @Override public void onTextChanged(CharSequence text,int start,int before,int count) { }
+            @Override public void afterTextChanged(Editable text) {
+                if (search.isPerformingCompletion()) return;
+                clearSuggestions();
+                if (tab==0 && search.hasFocus() && Youtube.canSuggest(text.toString().trim())) {
+                    handler.postDelayed(requestSuggestions,250);
+                }
+            }
+        });
+    }
+
+    private void fetchSuggestions() {
+        if (tab!=0 || !search.hasFocus() || !hasWindowFocus()) return;
+        String query=search.getText().toString().trim();
+        int version=suggestionVersion;
+        suggestionCall=app.youtube.suggest(query,found->handler.post(()->{
+            if (version!=suggestionVersion || tab!=0 || !search.hasFocus() || !hasWindowFocus()) return;
+            suggestionCall=null;
+            if (found.isEmpty()) return;
+            search.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_dropdown_item_1line,found) {
+                @Override public View getView(int position, View recycled, ViewGroup parent) {
+                    TextView row=(TextView)super.getView(position,recycled,parent);
+                    row.setTextColor(Ui.TEXT);
+                    row.setTypeface(Ui.regular);
+                    row.setTextSize(14);
+                    row.setMinHeight(dp(48));
+                    row.setPadding(dp(16),dp(4),dp(16),dp(4));
+                    row.setEllipsize(TextUtils.TruncateAt.END);
+                    return row;
+                }
+            });
+            search.showDropDown();
+        }));
+    }
+
+    private void clearSuggestions() {
+        suggestionVersion++;
+        handler.removeCallbacks(requestSuggestions);
+        if (suggestionCall!=null) {
+            suggestionCall.cancel();
+            suggestionCall=null;
+        }
+        if (search.getAdapter()!=null) {
+            search.dismissDropDown();
+            search.setAdapter(null);
+        }
+    }
+
+    @Override public void onWindowFocusChanged(boolean focused) {
+        super.onWindowFocusChanged(focused);
+        if (!focused && search!=null) clearSuggestions();
     }
     void buildMini(){
         mini=Ui.horizontal(this);mini.setPadding(dp(12),dp(8),dp(6),dp(8));mini.setBackground(Ui.ripple(this,Ui.SURFACE,18));LinearLayout.LayoutParams box=lp(-1,-2);box.setMargins(dp(12),dp(6),dp(12),dp(6));root.addView(mini,box);miniCover=new ImageView(this);miniCover.setScaleType(ImageView.ScaleType.CENTER_CROP);miniCover.setImageDrawable(Ui.icon(this,"music",Ui.LIME));mini.addView(miniCover,lp(52,48));Ui.space(mini,this,12,0);LinearLayout texts=Ui.vertical(this);miniTitle=Ui.text(this,"Dinlemeye hazırsın",13,true,Ui.TEXT);miniTitle.setSingleLine(true);miniTitle.setEllipsize(TextUtils.TruncateAt.END);miniArtist=Ui.text(this,"Bir parça seç, ritmini bul.",11,false,Ui.MUTED);miniArtist.setSingleLine(true);miniArtist.setEllipsize(TextUtils.TruncateAt.END);miniArtist.setPadding(0,dp(5),0,0);texts.addView(miniTitle);texts.addView(miniArtist);mini.addView(texts,new LinearLayout.LayoutParams(0,-2,1));miniPlay=Ui.action(this,"play","Çal veya duraklat",true);miniPlay.setOnClickListener(v->togglePlay());mini.addView(miniPlay,lp(48,48));mini.setOnClickListener(v->showPlayer());
@@ -101,6 +200,7 @@ public final class MainActivity extends ComponentActivity {
         if(shortScreen||largeText)for(int i=0;i<nav.getChildCount();i++){LinearLayout item=(LinearLayout)nav.getChildAt(i);item.getChildAt(1).setVisibility(View.GONE);item.setPadding(0,dp(8),0,dp(8));item.setMinimumHeight(dp(48));item.setTooltipText(item.getContentDescription());}
     }
     void showPage(boolean top){
+        if (tab!=0) clearSuggestions();
         boolean explore=tab==0;searchArea.setVisibility(explore?View.VISIBLE:View.GONE);pageAction.setVisibility(View.GONE);busy.setVisibility(explore&&searching?View.VISIBLE:View.GONE);status.setText(explore?searchError:"");status.setVisibility(explore&&!searchError.isEmpty()?View.VISIBLE:View.GONE);
         String heading,description,blank;
         if(tab==0){heading=results.isEmpty()?"Bugün ne dinleyelim?":"Arama sonuçları";description=searching?"Müziğin aranıyor…":results.isEmpty()?"Sevdiğin müziğe bir arama uzaktasın.":results.size()+" parça · "+lastQuery;blank=searching?"Kapaklar ve parçalar hazırlanıyor…":"Bir şarkı, bir sanatçı,\nyepyeni bir ruh hali.\n\nÜstten arayarak başla.";}
@@ -132,7 +232,7 @@ public final class MainActivity extends ComponentActivity {
         return tracks;
     }
     static Track fromMedia(MediaItem m){return Track.fromMedia(m);}
-    void hideKeyboard(){((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(search.getWindowToken(),0);search.clearFocus();}
+    void hideKeyboard(){clearSuggestions();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(search.getWindowToken(),0);search.clearFocus();}
     void runSearch(){String query=search.getText().toString().trim();if(query.isEmpty()){search.requestFocus();return;}hideKeyboard();lastQuery=query;searchError="";searching=true;tab=0;opened=null;int version=++searchVersion;if(searchTask!=null)searchTask.cancel(true);showPage(false);searchTask=app.io.submit(()->{try{List<Track> found=app.youtube.search(query);runOnUiThread(()->{if(isDestroyed()||version!=searchVersion)return;searching=false;results.clear();results.addAll(found);if(found.isEmpty())searchError="Sonuç bulunamadı. Başka bir arama dene.";showPage(true);});}catch(Exception e){runOnUiThread(()->{if(isDestroyed()||version!=searchVersion)return;searching=false;searchError="Arama tamamlanamadı. Bağlantını kontrol edip tekrar dene.";showPage(false);});}});}
     void requestNotification(){
         SharedPreferences prefs=getSharedPreferences("ui",0);
@@ -371,7 +471,7 @@ public final class MainActivity extends ComponentActivity {
         LinearLayout transport=Ui.horizontal(this);transport.setGravity(Gravity.CENTER);transport.setPadding(0,dp(16),0,dp(16));fullShuffle=Ui.action(this,"shuffle","Karışık çalmayı aç veya kapat",false);fullShuffle.setOnClickListener(v->{controller.setShuffleModeEnabled(!controller.getShuffleModeEnabled());refreshPlayback();});transport.addView(fullShuffle,lp(48,48));ImageButton previous=Ui.action(this,"previous","Önceki parça",false);previous.setOnClickListener(v->controller.seekToPrevious());transport.addView(previous,new LinearLayout.LayoutParams(0,dp(56),1));fullPlay=Ui.action(this,"play","Çal veya duraklat",true);fullPlay.setOnClickListener(v->togglePlay());transport.addView(fullPlay,lp(72,72));ImageButton next=Ui.action(this,"next","Sonraki parça",false);next.setOnClickListener(v->skipNext());transport.addView(next,new LinearLayout.LayoutParams(0,dp(56),1));fullRepeat=Ui.action(this,"repeat","Tekrar modu",false);fullRepeat.setOnClickListener(v->{int current=controller.getRepeatMode();controller.setRepeatMode(current==Player.REPEAT_MODE_OFF?Player.REPEAT_MODE_ONE:current==Player.REPEAT_MODE_ONE?Player.REPEAT_MODE_ALL:Player.REPEAT_MODE_OFF);refreshPlayback();});transport.addView(fullRepeat,lp(48,48));controls.addView(transport,lp(-1,-2));
         LinearLayout extras=Ui.horizontal(this);Button add=Ui.button(this,"Playlist’e ekle",false);add.setOnClickListener(v->addToPlaylist(fromMedia(controller.getCurrentMediaItem())));extras.addView(add,new LinearLayout.LayoutParams(0,-2,1));Ui.space(extras,this,12,0);ImageButton stop=Ui.action(this,"stop","Çalmayı durdur",false);stop.setOnClickListener(v->{controller.pause();controller.stop();controller.seekTo(0);refreshPlayback();});extras.addView(stop,lp(48,48));ImageButton queue=Ui.action(this,"queue","Çalma sırasını görüntüle",false);queue.setOnClickListener(v->{playerDialog.dismiss();tab=3;opened=null;showPage(true);});extras.addView(queue,lp(48,48));controls.addView(extras);LinearLayout volume=Ui.horizontal(this);ImageView speaker=new ImageView(this);speaker.setImageDrawable(Ui.icon(this,"volume",Ui.MUTED));volume.addView(speaker,lp(24,24));SeekBar level=new SeekBar(this);level.setContentDescription("Uygulama ses seviyesi");level.setMax(100);level.setProgress((int)(controller.getVolume()*100));level.setProgressTintList(ColorStateList.valueOf(Ui.LIME));level.setThumbTintList(ColorStateList.valueOf(Ui.LIME));level.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar b,int p,boolean user){if(user)controller.setVolume(p/100f);}public void onStartTrackingTouch(SeekBar b){}public void onStopTrackingTouch(SeekBar b){}});volume.addView(level,new LinearLayout.LayoutParams(0,dp(48),1));controls.addView(volume);playerDialog.setOnDismissListener(d->{playerDialog=null;seeking=false;});playerDialog.show();window.setLayout(-1,-1);refreshPlayback();
     }
-    @Override protected void onDestroy(){handler.removeCallbacksAndMessages(null);if(searchTask!=null)searchTask.cancel(true);if(playerDialog!=null)playerDialog.dismiss();if(controller!=null)controller.removeListener(listener);if(controllerFuture!=null)MediaController.releaseFuture(controllerFuture);super.onDestroy();}
+    @Override protected void onDestroy(){clearSuggestions();handler.removeCallbacksAndMessages(null);if(searchTask!=null)searchTask.cancel(true);if(playerDialog!=null)playerDialog.dismiss();if(controller!=null)controller.removeListener(listener);if(controllerFuture!=null)MediaController.releaseFuture(controllerFuture);super.onDestroy();}
 
     final class Rows extends RecyclerView.Adapter<Rows.Holder> {
         final ArrayList<Track> tracks=new ArrayList<>();final ArrayList<Library.Playlist> playlists=new ArrayList<>();boolean playlistPage;

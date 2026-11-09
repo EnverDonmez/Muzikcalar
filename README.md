@@ -4,7 +4,7 @@
 
 Kendi kendime reklamsız müzik dinleyebilmek için başladığım ufak bir uğraş. Bir şarkı arayayım, sıraya atayım, arka planda çalsın derken işin içine Windows ve Android sürümleri de girdi. Buraya da kaynak kodu dursun diye bıraktım. :D
 
-- YouTube’da şarkı veya sanatçı ara, video bağlantısı yapıştır ya da cihazındaki ses dosyalarını çal.
+- YouTube’da şarkı veya sanatçı ara, yazarken gelen önerileri seç, video bağlantısı yapıştır ya da cihazındaki ses dosyalarını çal.
 - Çalma sırasını düzenle, beğendiğin parçaları kaydet ve çalma listeleri oluştur.
 - Kitaplığını JSON ile Windows ve Android arasında taşı. Uygulamayı yeniden açtığında kaldığın parçaya dön.
 - Android’de arka planda dinle. Windows’ta medya tuşlarıyla çalmayı yönet.
@@ -17,4 +17,4 @@ Kendi kendime reklamsız müzik dinleyebilmek için başladığım ufak bir uğr
 
 YouTube’dan oynatma internete ve yt-dlp’nin o sırada çalışmasına bağlı. Yerel ses dosyaları çevrimdışı çalar.
 
-[Geliştirme ve test komutları](docs/GELISTIRME.md) · [Bileşenler ve lisanslar](docs/BILESENLER.txt)
+[Arama önerileri raporu](docs/arama-onerileri.md) · [Geliştirme ve test komutları](docs/GELISTIRME.md) · [Bileşenler ve lisanslar](docs/BILESENLER.txt)

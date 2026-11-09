@@ -13,6 +13,8 @@ import java.util.regex.*;
 
 public final class Youtube {
     public static final String AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    private static final int SUGGESTION_LIMIT=5;
+    private static final Pattern LINK_INPUT=Pattern.compile("://|(?:^|\\s)(?:https?:|www\\.|(?:m\\.|music\\.)?youtube\\.com(?=[/\\s]|$)|youtu\\.be(?=[/\\s]|$))",Pattern.CASE_INSENSITIVE);
     private final Context context;
     private final OkHttpClient http;
     private final LruCache<String,SearchEntry> searches=new LruCache<>(24);
@@ -52,6 +54,51 @@ public final class Youtube {
         Request request=new Request.Builder().url(url).header("User-Agent",AGENT).header("Accept-Language","tr-TR,tr;q=0.9,en;q=0.8").build();
         try(Response response=http.newBuilder().callTimeout(7,TimeUnit.SECONDS).build().newCall(request).execute()){if(!response.isSuccessful()||response.body()==null)throw new IOException("Bağlantı yanıtı: "+response.code());return response.body().string();}
     }
+    static boolean canSuggest(String query) {
+        return query.length()>=2 && query.length()<=500 && !LINK_INPUT.matcher(query).find();
+    }
+
+    Call suggest(String query, java.util.function.Consumer<List<String>> callback) {
+        HttpUrl url=new HttpUrl.Builder().scheme("https").host("suggestqueries.google.com")
+                .addPathSegments("complete/search").addQueryParameter("client","firefox")
+                .addQueryParameter("ds","yt").addQueryParameter("hl","tr")
+                .addQueryParameter("ie","UTF-8").addQueryParameter("oe","UTF-8")
+                .addQueryParameter("q",query).build();
+        Call call=http.newCall(new Request.Builder().url(url).build());
+        call.timeout().timeout(3,TimeUnit.SECONDS);
+        call.enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException error) {
+                callback.accept(Collections.emptyList());
+            }
+
+            @Override public void onResponse(Call call, Response response) {
+                List<String> found=Collections.emptyList();
+                try (Response ignored=response) {
+                    ResponseBody body=response.body();
+                    if (response.isSuccessful() && body!=null) found=parseSuggestions(body.string(),query);
+                } catch (IOException | JSONException ignored) { }
+                callback.accept(found);
+            }
+        });
+        return call;
+    }
+
+    static List<String> parseSuggestions(String json, String query) throws JSONException {
+        JSONArray entries=new JSONArray(json).optJSONArray(1);
+        List<String> suggestions=new ArrayList<>();
+        if (entries==null) return suggestions;
+
+        Set<String> seen=new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        seen.add(query);
+        for (int i=0;i<entries.length() && suggestions.size()<SUGGESTION_LIMIT;i++) {
+            Object entry=entries.opt(i);
+            if (!(entry instanceof String)) continue;
+            String text=((String)entry).trim();
+            if (canSuggest(text) && seen.add(text)) suggestions.add(text);
+        }
+        return suggestions;
+    }
+
     public List<Track> search(String raw)throws Exception{
         String query=raw.trim();if(query.isEmpty())return new ArrayList<>();
         SearchEntry cached=searches.get(query);if(cached!=null&&System.currentTimeMillis()-cached.time<600000)return new ArrayList<>(cached.tracks);

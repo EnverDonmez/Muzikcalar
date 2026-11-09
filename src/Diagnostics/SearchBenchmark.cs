@@ -26,6 +26,12 @@ namespace SadeSes
             Assert(parsed[1].Channel == "Deneme Sanatçısı" && parsed.All(t => t.ArtworkUrl.StartsWith("https://i.ytimg.com/")), "result metadata");
             Assert(YouTubeSearch.Decode(YouTubeSearch.Encode(parsed)).Select(t => t.Id).SequenceEqual(parsed.Select(t => t.Id)), "cache roundtrip");
             lines.Add("Page parser, thumbnail metadata and cache roundtrip: PASS");
+            var suggestions = YouTubeSearch.ParseSuggestions(
+                "[\"gülşen\",[null,1,\"\",\"gülşen\",\"gülşen bangır bangır\",\"GÜLŞEN bangır bangır\",\" gülşen of of \",\"gülşen irgalamaz beni\",\"gülşen dan dan\",\"gülşen canlı\",\"gülşen konser\"]]", "gülşen");
+            Assert(suggestions.Count == 5 && suggestions[0] == "gülşen bangır bangır" && suggestions[1] == "gülşen of of" && suggestions[4] == "gülşen canlı", "suggestion parsing and limit");
+            Assert(YouTubeSearch.ParseSuggestions("[\"gülşen\",{}]", "gülşen").Count == 0, "missing suggestion list");
+            Assert(YouTubeSearch.CanSuggest("gü") && !YouTubeSearch.CanSuggest("g") && !YouTubeSearch.CanSuggest("Dinle: https://youtu.be/n61ULEU7CO0") && !YouTubeSearch.CanSuggest("music.youtube.com/watch"), "suggestion query eligibility");
+            lines.Add("Suggestion parsing, ordering, limit and link exclusion: PASS");
             using (var cancel = new CancellationTokenSource())
             {
                 cancel.Cancel(); bool cancelled = false; try { await Tools.Search("cancelled query", cancel.Token); } catch (OperationCanceledException) { cancelled = true; }
