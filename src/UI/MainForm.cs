@@ -114,11 +114,19 @@ namespace SadeSes
             player.Message += OnPlayerMessage;
             FormClosing += (s, e) => {
                 if (globalMediaKeys) SetGlobalMediaKeys(false);
-                closing = true; Application.RemoveMessageFilter(wheelFilter); playVersion++; lifetime.Cancel(); if (searchCancel != null) searchCancel.Cancel(); if (playCancel != null) playCancel.Cancel(); SaveState(); player.Dispose();
+                closing = true; Application.RemoveMessageFilter(wheelFilter); playVersion++; lifetime.Cancel(); if (searchCancel != null) searchCancel.Cancel(); if (playCancel != null) playCancel.Cancel(); CancelStreamPreparation(); streamPreparationTimer.Dispose(); SaveState(); player.Dispose();
                 foreach (var image in images.Values) image.Dispose(); images.Clear(); tips.Dispose();
             };
             checkpoint.Tick += (s, e) => { if (playable && Math.Abs(position - savedPosition) >= 1) SaveState(); };
-            Shown += (s, e) => { search.Focus(); LoadVisibleCovers(); if (!preview) { checkpoint.Start(); Task ignored = ShowEngineVersion(); } };
+            streamPreparationTimer.Tick += async (s, e) => await PrepareSelectedStream();
+            Shown += (s, e) => {
+                search.Focus(); LoadVisibleCovers();
+                if (preview) return;
+                checkpoint.Start();
+                ScheduleStreamPreparation();
+                Task engine = WarmAudioEngine();
+                Task version = ShowEngineVersion();
+            };
             KeyDown += (s, e) => { if (e.Control && e.KeyCode == Keys.K) { search.Focus(); search.SelectAll(); e.SuppressKeyPress = true; } };
             if (preview)
             {
@@ -332,6 +340,7 @@ namespace SadeSes
         {
             bool selected = Selected != null;
             playButton.Enabled = detailPlay.Enabled = selected && !updating; addButton.Enabled = detailAdd.Enabled = detailInfo.Enabled = selected; removeButton.Visible = queueView; removeButton.Enabled = selected; UpdateLibraryActions();
+            ScheduleStreamPreparation();
         }
         void ShowDetail()
         {

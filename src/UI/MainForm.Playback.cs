@@ -9,6 +9,63 @@ namespace SadeSes
 {
     public partial class MainForm
     {
+        readonly System.Windows.Forms.Timer streamPreparationTimer = new System.Windows.Forms.Timer { Interval = 250 };
+        string preparingTrackId;
+        CancellationTokenSource preparationCancel;
+        Task<Dictionary<string, object>> preparingStream;
+
+        void ScheduleStreamPreparation()
+        {
+            var track = Selected;
+            string id = !preview && Visible && !closing && !updating && !loading && track != null &&
+                !track.IsLocal && (current == null || current.Id != track.Id) ? track.Id : null;
+            if (id == preparingTrackId) return;
+            CancelStreamPreparation();
+            if (id == null) return;
+            preparingTrackId = id;
+            streamPreparationTimer.Start();
+        }
+
+        async Task PrepareSelectedStream()
+        {
+            streamPreparationTimer.Stop();
+            var track = Selected;
+            if (track == null || track.Id != preparingTrackId) return;
+
+            var cancel = new CancellationTokenSource();
+            preparationCancel = cancel;
+            preparingStream = Tools.Resolve(track, cancel.Token);
+            try { await preparingStream; }
+            catch (Exception) { /* A speculative failure should stay silent until playback is requested. */ }
+            finally
+            {
+                if (ReferenceEquals(preparationCancel, cancel))
+                {
+                    preparationCancel = null;
+                    preparingStream = null;
+                    cancel.Dispose();
+                }
+            }
+        }
+
+        void CancelStreamPreparation()
+        {
+            streamPreparationTimer.Stop();
+            preparingTrackId = null;
+            preparingStream = null;
+            var cancel = preparationCancel;
+            preparationCancel = null;
+            if (cancel == null) return;
+            cancel.Cancel();
+            cancel.Dispose();
+        }
+
+        async Task WarmAudioEngine()
+        {
+            try { await player.Start(); }
+            catch (Exception) { /* Playback retries startup and reports errors when requested. */ }
+        }
+
         void Send(params object[] args) { try { player.Send(args); } catch { SetStatus("Ses motoruyla bağlantı kesildi. Parçayı yeniden açmayı dene.", true); } }
         void AddSelected(bool next = false)
         {
@@ -53,7 +110,12 @@ namespace SadeSes
         {
             if (closing || updating || preview) return;
             if (playCancel != null) { playCancel.Cancel(); playCancel.Dispose(); }
-            playCancel = new CancellationTokenSource(); var token = playCancel.Token; int version = ++playVersion;
+            var prepared = !recovering && track.Id == preparingTrackId ? preparingStream : null;
+            // Transfer the in-flight request so stop and track changes can still cancel it.
+            playCancel = prepared != null ? preparationCancel : new CancellationTokenSource();
+            if (prepared != null) preparationCancel = null;
+            CancelStreamPreparation();
+            var token = playCancel.Token; int version = ++playVersion;
             if (remember && playable && current != null) history.Push(current);
             if (!recovering) recoveryAttempts = 0;
             current = track; pendingQueueTrack = queueTrack; pendingCollection = collection;
@@ -80,7 +142,7 @@ namespace SadeSes
                     }
                 }
                 await player.Start(); if (version != playVersion || closing) return;
-                var data = await Tools.Resolve(track, token, recoveryAttempts); if (version != playVersion || closing) return;
+                var data = await (prepared ?? Tools.Resolve(track, token, recoveryAttempts)); if (version != playVersion || closing) return;
                 player.Load(data, volumeLevel, version, position);
             }
             catch (OperationCanceledException) { }
@@ -144,6 +206,7 @@ namespace SadeSes
         async Task Previous() { if (history.Count > 0) await Play(history.Pop(), false); else if (current != null && !loading) Send("seek", 0, "absolute"); }
         void Stop()
         {
+            CancelStreamPreparation();
             if (playCancel != null) playCancel.Cancel(); playVersion++; loading = false; playable = false; current = pendingQueueTrack = null; pendingCollection = null; position = duration = 0; Send("stop"); paused = false; pauseButton.Enabled = true; PauseIcon(false); nowTitle.Text = "Dinlemeye hazırsın"; nowChannel.Text = "Bir parça seç, dinlemeye başla."; seek.UpdateValue(0); elapsed.Text = total.Text = "0:00"; updateButton.Enabled = !searching; UpdateMiniCover(); ShowDetail(); SetStatus("Çalma durduruldu.", false); SaveState();
         }
         void OnPlayerMessage(Dictionary<string, object> message)
@@ -172,6 +235,7 @@ namespace SadeSes
                     PauseIcon(true); nowChannel.Text = current.Channel; updateButton.Enabled = !searching;
                     SetStatus("Şimdi çalıyor: " + current.Title, false);
                     SaveState(); if (view == LibraryView.Recent) RefreshList(); else RefreshQueueInfo();
+                    ScheduleStreamPreparation();
                 }
                 else if (ev == "engine-disconnected" || ev == "load-error")
                     await RecoverPlayback("Ses motoruyla bağlantı kurulamadı.", true);
