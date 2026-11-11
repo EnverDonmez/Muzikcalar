@@ -12,6 +12,7 @@ namespace SadeSes
     static class Theme
     {
         public static readonly Color Bg = Color.FromArgb(14, 17, 23), Sidebar = Color.FromArgb(10, 13, 18), Panel = Color.FromArgb(23, 28, 36), Raised = Color.FromArgb(31, 37, 47), Border = Color.FromArgb(37, 44, 55), Text = Color.FromArgb(240, 243, 247), Muted = Color.FromArgb(143, 155, 174), Accent = Color.FromArgb(199, 241, 113), AccentDim = Color.FromArgb(41, 52, 35), Pressed = Color.FromArgb(46, 55, 66), AccentPressed = Color.FromArgb(174, 211, 94), DisabledText = Color.FromArgb(117, 129, 146), Focus = Color.FromArgb(225, 250, 184), Track = Color.FromArgb(85, 99, 117);
+        public static readonly Color InputBorder = Color.FromArgb(104, 116, 132), Error = Color.FromArgb(255, 165, 152);
         public static float Scale = 1;
         static readonly PrivateFontCollection regularFonts = new PrivateFontCollection(), extraBoldFonts = new PrivateFontCollection();
         static FontFamily regularFamily, extraBoldFamily;
@@ -76,6 +77,7 @@ namespace SadeSes
                     g.DrawLines(pen, new[] { new PointF(x + w * .41f, y + h * .39f), new PointF(x + w * .18f, y + h * .62f), new PointF(x + w * .41f, y + h * .85f) });
                 }
                 else if (kind == "plus") { g.DrawLine(pen, x + w * .5f, y + h * .2f, x + w * .5f, y + h * .8f); g.DrawLine(pen, x + w * .2f, y + h * .5f, x + w * .8f, y + h * .5f); }
+                else if (kind == "check") g.DrawLines(pen, new[] { new PointF(x + w * .17f, y + h * .50f), new PointF(x + w * .41f, y + h * .73f), new PointF(x + w * .83f, y + h * .27f) });
                 else if (kind == "stop") g.FillRectangle(fill, x + w * .26f, y + h * .26f, w * .48f, h * .48f);
                 else if (kind == "repeat") { g.DrawArc(pen, x + w * .15f, y + h * .2f, w * .7f, h * .6f, 195, 160); g.DrawArc(pen, x + w * .15f, y + h * .2f, w * .7f, h * .6f, 15, 160); g.DrawLine(pen, x + w * .82f, y + h * .2f, x + w * .84f, y + h * .45f); g.DrawLine(pen, x + w * .16f, y + h * .55f, x + w * .18f, y + h * .8f); }
                 else if (kind == "queue") { for (int i = 0; i < 3; i++) { float lineY = y + h * (.25f + .25f * i); g.DrawLine(pen, x + w * .16f, lineY, x + w * .83f, lineY); } }

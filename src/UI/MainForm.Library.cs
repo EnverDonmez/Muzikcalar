@@ -262,7 +262,8 @@ namespace SadeSes
         void CreatePlaylistDialog(Track initialTrack)
         {
             if (!libraryWritable) return;
-            string name = LibraryDialogs.Name(this, "Yeni playlist", "", value => library.CheckName(value, null)); if (name == null) return;
+            string name = LibraryDialogs.TextInput(this, "Yeni playlist", "Playlist adı", "", "Oluştur", value => library.CheckName(value, null));
+            if (name == null) return;
             string id = null;
             if (!CommitLibrary(data => { var created = data.Create(name); id = created.Id; if (initialTrack != null) data.Add(id, initialTrack); })) return;
             if (initialTrack == null) { playlistId = id; playlistFilter = ""; view = LibraryView.PlaylistTracks; RefreshList(); }
@@ -271,15 +272,26 @@ namespace SadeSes
         void ShowSaveMenu(Control anchor)
         {
             var track = Selected; if (track == null || !libraryWritable) return;
-            var menu = NewMenu();
-            if (library.Playlists.Count == 0) menu.Items.Add(new ToolStripMenuItem("Henüz playlist yok") { Enabled = false });
+            var menu = BuildSaveMenu(track);
+            DisposeMenuAfterClose(menu);
+            menu.Show(anchor, new Point(0, -Theme.P(8)), ToolStripDropDownDirection.AboveRight);
+        }
+        PlaylistMenu BuildSaveMenu(Track track)
+        {
+            var menu = new PlaylistMenu();
+            menu.SuspendLayout();
+            menu.AddRow("Yeni playlist oluştur", "", "plus", true, () => Ui(() => CreatePlaylistDialog(track)));
             foreach (var playlist in library.Playlists)
             {
-                string id = playlist.Id, name = playlist.Name; bool already = playlist.Tracks.Any(t => t.Id == track.Id);
-                var item = new ToolStripMenuItem(name.Replace("&", "&&") + (already ? " · zaten ekli" : "")) { Enabled = !already, Checked = already };
-                item.Click += (s, e) => { if (CommitLibrary(data => data.Add(id, track))) SetStatus("Playlist’e kaydedildi: " + name, false); }; menu.Items.Add(item);
+                string id = playlist.Id, name = playlist.Name;
+                bool already = playlist.Tracks.Any(t => t.Id == track.Id);
+                menu.AddRow(name, already ? "Zaten ekli" : playlist.Tracks.Count + " parça", already ? "check" : "library", !already, () => {
+                    if (CommitLibrary(data => data.Add(id, track))) SetStatus("Playlist’e kaydedildi: " + name, false);
+                });
             }
-            menu.Items.Add(new ToolStripSeparator()); menu.Items.Add("+ Yeni playlist oluştur…", null, (s, e) => CreatePlaylistDialog(track)); DisposeMenuAfterClose(menu); menu.Show(anchor, new Point(0, anchor.Height));
+            if (library.Playlists.Count == 0) menu.AddRow("Henüz playlist yok", "", "", false);
+            menu.ResumeLayout();
+            return menu;
         }
         void ShowManageMenu(Control anchor)
         {
@@ -287,8 +299,8 @@ namespace SadeSes
             if (view == LibraryView.PlaylistTracks)
             {
                 menu.Items.Add("Playlist içinde ara…", null, (s, e) => {
-                    var filter = LibraryDialogs.Name(this, "Playlist içinde ara", playlistFilter, value => { });
-                    if (filter != null) { playlistFilter = filter.Trim(); RefreshList(); }
+                    var filter = LibraryDialogs.TextInput(this, "Playlist içinde ara", "Aranacak sözcük", playlistFilter, "Ara");
+                    if (filter != null) { playlistFilter = filter; RefreshList(); }
                 });
                 if (playlistFilter.Length > 0) menu.Items.Add("Filtreyi temizle", null, (s, e) => { playlistFilter = ""; RefreshList(); });
                 menu.Items.Add("Parça adına göre sırala", null, (s, e) => SortPlaylist(false));
@@ -378,7 +390,8 @@ namespace SadeSes
         void RenamePlaylist()
         {
             var playlist = SelectedPlaylist; if (playlist == null) return; string id = playlist.Id;
-            string name = LibraryDialogs.Name(this, "Playlist adını değiştir", playlist.Name, value => library.CheckName(value, id)); if (name == null) return;
+            string name = LibraryDialogs.TextInput(this, "Playlist adını değiştir", "Playlist adı", playlist.Name, "Kaydet", value => library.CheckName(value, id));
+            if (name == null) return;
             if (CommitLibrary(data => data.Rename(id, name))) SetStatus("Playlist adı güncellendi.", false);
         }
         void DeletePlaylist()
@@ -409,18 +422,58 @@ namespace SadeSes
             var dialog = new Form { Text = title, StartPosition = FormStartPosition.CenterParent, ClientSize = new Size(Theme.P(480), Theme.P(265)), FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = false, BackColor = Theme.Panel, ForeColor = Theme.Text, Font = Theme.Font(14, false), AutoScaleMode = AutoScaleMode.None };
             dialog.HandleCreated += (s, e) => { try { int dark = 1; DwmSetWindowAttribute(dialog.Handle, 20, ref dark, 4); } catch { } }; return dialog;
         }
-        public static string Name(IWin32Window owner, string title, string initial, Action<string> validate)
+        public static string TextInput(IWin32Window owner, string title, string fieldLabel, string initial, string action, Action<string> validate = null)
         {
             using (var dialog = Window(title))
             {
-                var heading = new Label { Text = title, Font = Theme.Font(21, true), ForeColor = Theme.Text, AutoEllipsis = true }; heading.SetBounds(Theme.P(24), Theme.P(22), Theme.P(432), Theme.P(36));
-                var input = new TextBox { Text = initial, Font = Theme.Font(16, false), BackColor = Theme.Raised, ForeColor = Theme.Text, BorderStyle = BorderStyle.FixedSingle, MaxLength = 80, AccessibleName = "Playlist adı" }; input.SetBounds(Theme.P(24), Theme.P(84), Theme.P(432), Theme.P(36));
-                var error = new Label { Font = Theme.Font(12, false), ForeColor = Color.FromArgb(255, 165, 152), AutoEllipsis = true }; error.SetBounds(Theme.P(24), Theme.P(130), Theme.P(432), Theme.P(42));
-                var cancel = new SoftButton { Text = "Vazgeç", DialogResult = DialogResult.Cancel }; cancel.SetBounds(Theme.P(230), Theme.P(195), Theme.P(104), Theme.P(44));
-                var save = new SoftButton { Text = "Kaydet", Primary = true }; save.SetBounds(Theme.P(346), Theme.P(195), Theme.P(110), Theme.P(44));
-                save.Click += (s, e) => { try { validate(input.Text); dialog.DialogResult = DialogResult.OK; } catch (Exception ex) { error.Text = ex.Message; input.Focus(); } };
-                dialog.Controls.AddRange(new Control[] { heading, input, error, cancel, save }); dialog.AcceptButton = save; dialog.CancelButton = cancel; dialog.Shown += (s, e) => { input.Focus(); input.SelectAll(); };
-                return dialog.ShowDialog(owner) == DialogResult.OK ? MusicLibrary.CleanName(input.Text) : null;
+                dialog.ClientSize = new Size(Theme.P(416), Theme.P(236));
+                var heading = new Label { Text = title, Font = Theme.Font(22, true), AutoEllipsis = true };
+                heading.SetBounds(Theme.P(24), Theme.P(20), Theme.P(368), Theme.P(36));
+                var label = new Label { Text = fieldLabel, Font = Theme.Font(13, true), ForeColor = Theme.Muted };
+                label.SetBounds(Theme.P(24), Theme.P(66), Theme.P(368), Theme.P(20));
+
+                var field = new Panel { TabIndex = 0 };
+                field.SetBounds(Theme.P(24), Theme.P(92), Theme.P(368), Theme.P(48));
+                var input = new TextBox {
+                    Text = initial, Font = Theme.Font(16, false), BackColor = Theme.Raised, ForeColor = Theme.Text,
+                    BorderStyle = BorderStyle.None, MaxLength = 80, AccessibleName = fieldLabel, TabIndex = 0
+                };
+                int inset = Theme.P(14);
+                input.SetBounds(inset, (field.Height - input.PreferredHeight) / 2, field.Width - 2 * inset, input.PreferredHeight);
+                field.Controls.Add(input);
+                var error = new Label { Font = Theme.Font(12, false), ForeColor = Theme.Error, AccessibleRole = AccessibleRole.Alert };
+                error.SetBounds(Theme.P(24), Theme.P(148), Theme.P(368), Theme.P(32));
+
+                field.Paint += (s, e) => {
+                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                    var edge = error.Text.Length > 0 ? Theme.Error : input.Focused ? Theme.Accent : Theme.InputBorder;
+                    float stroke = Math.Max(1, Theme.Scale * (input.Focused ? 1.5f : 1));
+                    using (var shape = Theme.Round(new RectangleF(stroke / 2, stroke / 2, field.Width - stroke, field.Height - stroke), Theme.P(11)))
+                    using (var fill = new SolidBrush(Theme.Raised))
+                    using (var pen = new Pen(edge, stroke))
+                    {
+                        e.Graphics.FillPath(fill, shape);
+                        e.Graphics.DrawPath(pen, shape);
+                    }
+                };
+                field.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) input.Focus(); };
+                input.GotFocus += (s, e) => field.Invalidate();
+                input.LostFocus += (s, e) => field.Invalidate();
+                input.TextChanged += (s, e) => { error.Text = ""; input.AccessibleDescription = ""; field.Invalidate(); };
+
+                var cancel = new SoftButton { Text = "Vazgeç", Quiet = true, DialogResult = DialogResult.Cancel, TabIndex = 1 };
+                cancel.SetBounds(Theme.P(164), Theme.P(180), Theme.P(108), Theme.P(44));
+                var save = new SoftButton { Text = action, Primary = true, TabIndex = 2 };
+                save.SetBounds(Theme.P(280), Theme.P(180), Theme.P(112), Theme.P(44));
+                save.Click += (s, e) => {
+                    try { if (validate != null) validate(input.Text); dialog.DialogResult = DialogResult.OK; }
+                    catch (Exception ex) { error.Text = ex.Message; input.AccessibleDescription = ex.Message; input.Focus(); field.Invalidate(); }
+                };
+                dialog.Controls.AddRange(new Control[] { heading, label, field, error, cancel, save });
+                dialog.AcceptButton = save;
+                dialog.CancelButton = cancel;
+                dialog.Shown += (s, e) => { input.Focus(); input.SelectAll(); };
+                return dialog.ShowDialog(owner) == DialogResult.OK ? input.Text.Trim() : null;
             }
         }
         public static bool Confirm(IWin32Window owner, string title, string text)
