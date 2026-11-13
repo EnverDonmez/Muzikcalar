@@ -86,6 +86,7 @@ public final class Library {
     }
     public boolean liked(Track t){return contains(favorites,t);}
     public static boolean contains(List<Track> list,Track t){for(Track a:list)if(a.id.equals(t.id))return true;return false;}
+    public static boolean isAt(List<Track> list,int index,Track t){return index>=0&&index<list.size()&&list.get(index).id.equals(t.id);}
     public void toggle(Track t)throws IOException{ArrayList<Track> before=new ArrayList<>(favorites);if(liked(t))favorites.removeIf(a->a.id.equals(t.id));else favorites.add(0,t);try{save();}catch(IOException e){favorites.clear();favorites.addAll(before);throw e;}}
     static String nameKey(String text){return text.toLowerCase(new Locale("tr","TR"));}
     private static String cleanName(String raw){

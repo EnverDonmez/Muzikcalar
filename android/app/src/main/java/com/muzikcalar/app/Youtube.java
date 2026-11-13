@@ -19,7 +19,7 @@ public final class Youtube {
     private final OkHttpClient http;
     private final LruCache<String,SearchEntry> searches=new LruCache<>(24);
     private final LruCache<String,Boolean> verifyOnResolve=new LruCache<>(16);
-    private final Map<String,Stream> streams=new HashMap<>();
+    private final LruCache<String,Stream> streams=new LruCache<>(16);
     private boolean initialized;
     static final class SearchEntry { long time=System.currentTimeMillis();List<Track> tracks;SearchEntry(List<Track> tracks){this.tracks=tracks;} }
     public static final class Stream { public String url; public Map<String,String> headers=new HashMap<>();long time=System.currentTimeMillis(); }
@@ -126,9 +126,11 @@ public final class Youtube {
     }
     private static String text(JSONObject j){if(j==null)return "";if(j.has("simpleText"))return j.optString("simpleText");StringBuilder b=new StringBuilder();JSONArray a=j.optJSONArray("runs");if(a!=null)for(int i=0;i<a.length();i++)b.append(a.optJSONObject(i).optString("text"));return b.toString();}
     static long duration(String text){try{long n=0;for(String part:text.split(":"))n=n*60+Long.parseLong(part.replaceAll("[^0-9]",""));return n;}catch(Exception e){return 0;}}
+    // Matches the Windows parser: sponsored entries stay out of search results.
+    private static boolean isPromoted(String key){String k=key.toLowerCase(Locale.ROOT);return k.contains("adslot")||k.startsWith("promoted");}
     private static void walk(Object node,LinkedHashMap<String,Track> out,int depth){
         if(depth>60||out.size()>=30)return;
-        if(node instanceof JSONObject){JSONObject j=(JSONObject)node;JSONObject v=j.optJSONObject("videoRenderer");if(v!=null){String id=v.optString("videoId");if(id.matches("[A-Za-z0-9_-]{11}")){String title=text(v.optJSONObject("title")),artist=text(v.optJSONObject("ownerText"));if(artist.isEmpty())artist=text(v.optJSONObject("longBylineText"));out.putIfAbsent(id,new Track(id,title,artist,duration(text(v.optJSONObject("lengthText"))),""));}return;}Iterator<String> keys=j.keys();while(keys.hasNext())walk(j.opt(keys.next()),out,depth+1);}
+        if(node instanceof JSONObject){JSONObject j=(JSONObject)node;JSONObject v=j.optJSONObject("videoRenderer");if(v!=null){String id=v.optString("videoId");if(id.matches("[A-Za-z0-9_-]{11}")){String title=text(v.optJSONObject("title")),artist=text(v.optJSONObject("ownerText"));if(artist.isEmpty())artist=text(v.optJSONObject("longBylineText"));out.putIfAbsent(id,new Track(id,title,artist,duration(text(v.optJSONObject("lengthText"))),""));}return;}Iterator<String> keys=j.keys();while(keys.hasNext()){String key=keys.next();if(isPromoted(key))continue;walk(j.opt(key),out,depth+1);}}
         else if(node instanceof JSONArray){JSONArray a=(JSONArray)node;for(int i=0;i<a.length();i++)walk(a.opt(i),out,depth+1);}
     }
     public Stream resolve(String id)throws IOException{
@@ -154,5 +156,5 @@ public final class Youtube {
     }
     public void invalidate(String id){synchronized(streams){streams.remove(id);}}
     public void verifyNextResolve(String id){invalidate(id);verifyOnResolve.put(id,true);}
-    public void clearStreams(){synchronized(streams){streams.clear();}verifyOnResolve.evictAll();}
+    public void clearStreams(){synchronized(streams){streams.evictAll();}verifyOnResolve.evictAll();}
 }

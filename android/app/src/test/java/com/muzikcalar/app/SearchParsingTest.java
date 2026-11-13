@@ -15,6 +15,43 @@ public class SearchParsingTest {
         assertTrue(Youtube.parseSuggestions("[\"gülşen\",{}]","gülşen").isEmpty());
     }
 
+    @Test public void acceptsEmbedLinksLikeWindows() {
+        assertEquals("n61ULEU7CO0",Track.videoId("https://www.youtube.com/embed/n61ULEU7CO0?start=5"));
+        assertNull(Track.videoId("https://example.com/embed/n61ULEU7CO0"));
+    }
+
+    @Test public void skipsSponsoredSearchEntries() throws Exception {
+        String sponsored="{\"adSlotRenderer\":{\"fulfillmentContent\":{\"videoRenderer\":{\"videoId\":\"aaaaaaaaaaa\","
+                +"\"title\":{\"simpleText\":\"Reklam\"}}}}}";
+        String promoted="{\"promotedVideoRenderer\":{\"videoRenderer\":{\"videoId\":\"bbbbbbbbbbb\","
+                +"\"title\":{\"simpleText\":\"Reklam\"}}}}";
+        String video="{\"videoRenderer\":{\"videoId\":\"n61ULEU7CO0\",\"title\":{\"simpleText\":\"Şarkı\"}}}";
+        List<Track> tracks=Youtube.parseSearch("var ytInitialData = {\"contents\":["+sponsored+","+promoted+","+video+"]};");
+        assertEquals(1,tracks.size());
+        assertEquals("n61ULEU7CO0",tracks.get(0).id);
+    }
+
+    @Test public void coversOnlyLoadFromYoutubeImageHosts() throws Exception {
+        String fallback="https://i.ytimg.com/vi/n61ULEU7CO0/hqdefault.jpg";
+        String own="https://i.ytimg.com/vi/n61ULEU7CO0/mqdefault.jpg";
+        assertEquals(own,new Track("n61ULEU7CO0","Şarkı","Sanatçı",0,own).cover);
+        assertEquals("https://i9.ytimg.com/vi/x/y.jpg",new Track("n61ULEU7CO0","Şarkı","Sanatçı",0,"https://i9.ytimg.com/vi/x/y.jpg").cover);
+        for(String foreign:new String[]{"https://example.com/pixel.png","http://i.ytimg.com/vi/n61ULEU7CO0/mqdefault.jpg",
+                "https://i.ytimg.com.example.com/a.jpg","content://media/1",""})
+            assertEquals(fallback,new Track("n61ULEU7CO0","Şarkı","Sanatçı",0,foreign).cover);
+        org.json.JSONObject imported=new org.json.JSONObject().put("id","n61ULEU7CO0").put("thumbnail","https://example.com/pixel.png");
+        assertEquals(fallback,Track.from(imported).cover);
+    }
+
+    @Test public void collectionStartMustMatchTheVisibleRow() {
+        Track first=new Track("n61ULEU7CO0","Bir","A",0,""), second=new Track("aaaaaaaaaaa","İki","B",0,"");
+        List<Track> visible=Arrays.asList(first,second);
+        assertTrue(Library.isAt(visible,1,second));
+        assertFalse(Library.isAt(visible,0,second));
+        assertFalse(Library.isAt(visible,2,second));
+        assertFalse(Library.isAt(visible,-1,first));
+    }
+
     @Test public void onlySuggestsForSearchText() {
         assertTrue(Youtube.canSuggest("gü"));
         assertFalse(Youtube.canSuggest("g"));
