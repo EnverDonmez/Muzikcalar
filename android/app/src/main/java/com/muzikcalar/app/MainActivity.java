@@ -242,7 +242,7 @@ public final class MainActivity extends ComponentActivity {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},44);
         }
     }
-    void playTracks(List<Track> tracks,int index){if(controller==null){message("Oynatıcı hazırlanıyor…");return;}if(tracks.isEmpty())return;requestNotification();ArrayList<MediaItem> items=new ArrayList<>();for(Track t:new ArrayList<>(tracks))items.add(t.media());controller.setMediaItems(items,index,0);controller.prepare();controller.play();refreshPlayback();}
+    void playTracks(List<Track> tracks,int index){if(controller==null){message("Oynatıcı hazırlanıyor…");return;}if(index<0||index>=tracks.size())return;requestNotification();ArrayList<MediaItem> items=new ArrayList<>();for(Track t:new ArrayList<>(tracks))items.add(t.media());controller.setMediaItems(items,index,0);controller.prepare();controller.play();refreshPlayback();}
     void playVisible(){playTracks(visibleTracks(),0);}
     void togglePlay(){
         if(controller==null||controller.getMediaItemCount()==0){message("Önce bir parça seç.");return;}
@@ -298,7 +298,9 @@ public final class MainActivity extends ComponentActivity {
         actions.put("Sıranın sonuna ekle",()->addQueue(t));
         if(!queuePage&&tab!=RECENT){
             List<Track> collection=new ArrayList<>(visibleTracks());
-            actions.put("Bu parçadan başlayarak listeyi çal",()->playTracks(collection,index));
+            // The full player opens this menu with a queue index, which does not address the visible list.
+            if(Library.isAt(collection,index,t))
+                actions.put("Bu parçadan başlayarak listeyi çal",()->playTracks(collection,index));
         }
         actions.put(app.library!=null&&app.library.liked(t)?"Beğenilerden çıkar":"Beğen",()->like(t));
         actions.put("Playlist’e ekle",()->addToPlaylist(t));

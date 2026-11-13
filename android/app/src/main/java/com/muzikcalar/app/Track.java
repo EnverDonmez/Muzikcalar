@@ -11,6 +11,7 @@ import java.util.regex.*;
 public final class Track {
     public final String id, title, artist, cover, local;
     public final long seconds;
+    private static final Pattern COVER_HOST=Pattern.compile("https://i[0-9]*\\.ytimg\\.com/");
     public Track(String id, String title, String artist, long seconds, String cover) {
         this(id,title,artist,seconds,cover,"");
     }
@@ -20,7 +21,8 @@ public final class Track {
             throw new IllegalArgumentException("Geçersiz parça kaydı");
         this.id=id; this.title=title; this.artist=artist; this.seconds=seconds;
         this.local=local;
-        this.cover=local.isEmpty()?(cover.isEmpty()?"https://i.ytimg.com/vi/"+id+"/hqdefault.jpg":cover):"";
+        // Imported libraries and saved sessions may carry any address; covers only load from YouTube's image hosts.
+        this.cover=local.isEmpty()?(COVER_HOST.matcher(cover).lookingAt()?cover:"https://i.ytimg.com/vi/"+id+"/hqdefault.jpg"):"";
     }
     public boolean isLocal() { return !local.isEmpty(); }
     public String url() { return isLocal()?local:"https://www.youtube.com/watch?v="+id; }
@@ -43,7 +45,7 @@ public final class Track {
                 m.artworkUri==null?"":m.artworkUri.toString(),extras==null?"":extras.getString("local",""));
     }
     public static String videoId(String input) {
-        Matcher m=Pattern.compile("(?i)(?:^|\\s)(?:https?://)?(?:www\\.|m\\.|music\\.)?(?:youtube\\.com/(?:watch\\?[^\\s]*?v=|shorts/|live/)|youtu\\.be/)([A-Za-z0-9_-]{11})(?:[^A-Za-z0-9_-]|$)").matcher(input);
+        Matcher m=Pattern.compile("(?i)(?:^|\\s)(?:https?://)?(?:www\\.|m\\.|music\\.)?(?:youtube\\.com/(?:watch\\?[^\\s]*?v=|shorts/|live/|embed/)|youtu\\.be/)([A-Za-z0-9_-]{11})(?:[^A-Za-z0-9_-]|$)").matcher(input);
         return m.find()?m.group(1):null;
     }
     public static String time(long seconds) { if(seconds<0) seconds=0; return seconds>=3600?String.format(Locale.ROOT,"%d:%02d:%02d",seconds/3600,(seconds/60)%60,seconds%60):String.format(Locale.ROOT,"%d:%02d",seconds/60,seconds%60); }
